@@ -503,3 +503,101 @@ export async function getTMDBTVRecommendations(
     return { code: 500, results: [] };
   }
 }
+
+/**
+ * 获取 TMDB 电影详情
+ * @param apiKey - TMDB API Key
+ * @param movieId - 电影ID
+ * @param proxy - 代理服务器地址
+ * @returns 电影详情
+ */
+export async function getTMDBMovieDetails(
+  apiKey: string,
+  movieId: number,
+  proxy?: string
+): Promise<{ code: number; details: any }> {
+  try {
+    if (!apiKey) {
+      return { code: 400, details: null };
+    }
+
+    const url = `https://api.themoviedb.org/3/movie/${movieId}?api_key=${apiKey}&language=zh-CN`;
+    const fetchOptions: any = proxy
+      ? {
+          agent: new HttpsProxyAgent(proxy, {
+            timeout: 30000,
+            keepAlive: false,
+          }),
+          signal: AbortSignal.timeout(30000),
+        }
+      : {
+          signal: AbortSignal.timeout(15000),
+        };
+
+    const response = await nodeFetch(url, fetchOptions);
+
+    if (!response.ok) {
+      console.error('TMDB API 请求失败:', response.status, response.statusText);
+      return { code: response.status, details: null };
+    }
+
+    const data: any = await response.json();
+
+    return {
+      code: 200,
+      details: data,
+    };
+  } catch (error) {
+    console.error('获取 TMDB 电影详情失败:', error);
+    return { code: 500, details: null };
+  }
+}
+
+/**
+ * 获取 TMDB 电视剧详情
+ * @param apiKey - TMDB API Key
+ * @param tvId - 电视剧ID
+ * @param proxy - 代理服务器地址
+ * @returns 电视剧详情
+ */
+export async function getTMDBTVDetails(
+  apiKey: string,
+  tvId: number,
+  proxy?: string
+): Promise<{ code: number; details: any }> {
+  try {
+    if (!apiKey) {
+      return { code: 400, details: null };
+    }
+
+    const url = `https://api.themoviedb.org/3/tv/${tvId}?api_key=${apiKey}&language=zh-CN`;
+    const fetchOptions: any = proxy
+      ? {
+          agent: new HttpsProxyAgent(proxy, {
+            timeout: 30000,
+            keepAlive: false,
+          }),
+          signal: AbortSignal.timeout(30000),
+        }
+      : {
+          signal: AbortSignal.timeout(15000),
+        };
+
+    const response = await nodeFetch(url, fetchOptions);
+
+    if (!response.ok) {
+      console.error('TMDB API 请求失败:', response.status, response.statusText);
+      return { code: response.status, details: null };
+    }
+
+    const data: any = await response.json();
+
+    return {
+      code: 200,
+      details: data,
+    };
+  } catch (error) {
+    console.error('获取 TMDB 电视剧详情失败:', error);
+    return { code: 500, details: null };
+  }
+}

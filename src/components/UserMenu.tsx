@@ -90,6 +90,7 @@ export const UserMenu: React.FC = () => {
   const [fluidSearch, setFluidSearch] = useState(true);
   const [liveDirectConnect, setLiveDirectConnect] = useState(false);
   const [danmakuHeatmapDisabled, setDanmakuHeatmapDisabled] = useState(false);
+  const [tmdbBackdropDisabled, setTmdbBackdropDisabled] = useState(false);
   const [doubanDataSource, setDoubanDataSource] = useState('cmliussss-cdn-tencent');
   const [doubanImageProxyType, setDoubanImageProxyType] = useState('cmliussss-cdn-tencent');
   const [doubanImageProxyUrl, setDoubanImageProxyUrl] = useState('');
@@ -309,6 +310,11 @@ export const UserMenu: React.FC = () => {
       if (savedDanmakuHeatmapDisabled !== null) {
         setDanmakuHeatmapDisabled(savedDanmakuHeatmapDisabled === 'true');
       }
+
+      const savedTmdbBackdropDisabled = localStorage.getItem('tmdb_backdrop_disabled');
+      if (savedTmdbBackdropDisabled !== null) {
+        setTmdbBackdropDisabled(savedTmdbBackdropDisabled === 'true');
+      }
     }
   }, []);
 
@@ -510,6 +516,13 @@ export const UserMenu: React.FC = () => {
     setDanmakuHeatmapDisabled(value);
     if (typeof window !== 'undefined') {
       localStorage.setItem('danmaku_heatmap_disabled', String(value));
+    }
+  };
+
+  const handleTmdbBackdropDisabledToggle = (value: boolean) => {
+    setTmdbBackdropDisabled(value);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('tmdb_backdrop_disabled', String(value));
     }
   };
 
@@ -1197,6 +1210,30 @@ export const UserMenu: React.FC = () => {
                     className='sr-only peer'
                     checked={danmakuHeatmapDisabled}
                     onChange={(e) => handleDanmakuHeatmapDisabledToggle(e.target.checked)}
+                  />
+                  <div className='w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
+                  <div className='absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5'></div>
+                </div>
+              </label>
+            </div>
+
+            {/* 禁用背景图渲染 */}
+            <div className='flex items-center justify-between'>
+              <div>
+                <h4 className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                  禁用背景图渲染
+                </h4>
+                <p className='text-xs text-gray-500 dark:text-gray-400 mt-1'>
+                  关闭播放页面的TMDB背景图显示（需手动刷新页面生效）
+                </p>
+              </div>
+              <label className='flex items-center cursor-pointer'>
+                <div className='relative'>
+                  <input
+                    type='checkbox'
+                    className='sr-only peer'
+                    checked={tmdbBackdropDisabled}
+                    onChange={(e) => handleTmdbBackdropDisabledToggle(e.target.checked)}
                   />
                   <div className='w-11 h-6 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
                   <div className='absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5'></div>

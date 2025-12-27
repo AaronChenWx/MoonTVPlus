@@ -95,6 +95,9 @@ function PlayPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<SearchResult | null>(null);
 
+  // TMDB背景图
+  const [tmdbBackdrop, setTmdbBackdrop] = useState<string | null>(null);
+
   // 收藏状态
   const [favorited, setFavorited] = useState(false);
 
@@ -561,6 +564,118 @@ function PlayPageClient() {
 
     fetchDoubanRating();
   }, [videoDoubanId]);
+
+  // 获取TMDB背景图
+  useEffect(() => {
+    const fetchTMDBBackdrop = async () => {
+      // 检查是否禁用背景图
+      if (typeof window !== 'undefined') {
+        const disabled = localStorage.getItem('tmdb_backdrop_disabled');
+        if (disabled === 'true') {
+          setTmdbBackdrop(null);
+          return;
+        }
+      }
+
+      if (!videoTitle) {
+        setTmdbBackdrop(null);
+        return;
+      }
+
+      try {
+        // 检查title到tmdbId的映射缓存（1个月）
+        const mappingCacheKey = `tmdb_title_mapping_${videoTitle}`;
+        const mappingCache = localStorage.getItem(mappingCacheKey);
+        let cachedId: string | null = null;
+
+        if (mappingCache) {
+          try {
+            const { tmdbId, timestamp } = JSON.parse(mappingCache);
+            const cacheAge = Date.now() - timestamp;
+            const cacheMaxAge = 30 * 24 * 60 * 60 * 1000; // 1个月
+
+            if (cacheAge < cacheMaxAge && tmdbId) {
+              console.log('使用缓存的TMDB ID映射');
+              cachedId = tmdbId;
+
+              // 检查TMDB详情缓存（1天）
+              const detailsCacheKey = `tmdb_details_${tmdbId}`;
+              const detailsCache = localStorage.getItem(detailsCacheKey);
+
+              if (detailsCache) {
+                try {
+                  const { data, timestamp: detTimestamp } = JSON.parse(detailsCache);
+                  const detCacheAge = Date.now() - detTimestamp;
+                  const detCacheMaxAge = 24 * 60 * 60 * 1000; // 1天
+
+                  if (detCacheAge < detCacheMaxAge && data && data.backdrop) {
+                    console.log('使用缓存的TMDB详情数据');
+                    setTmdbBackdrop(data.backdrop);
+                    return;
+                  }
+                } catch (e) {
+                  console.error('解析详情缓存失败:', e);
+                }
+              }
+            }
+          } catch (e) {
+            console.error('解析映射缓存失败:', e);
+          }
+        }
+
+        // 构建请求URL
+        const url = cachedId
+          ? `/api/tmdb-details?cachedId=${encodeURIComponent(cachedId)}`
+          : `/api/tmdb-details?title=${encodeURIComponent(videoTitle)}`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          console.log('获取TMDB详情失败');
+          setTmdbBackdrop(null);
+          return;
+        }
+
+        const result = await response.json();
+
+        if (result.backdrop) {
+          setTmdbBackdrop(result.backdrop);
+
+          // 保存title到tmdbId的映射到localStorage（1个月）
+          if (result.tmdbId) {
+            try {
+              localStorage.setItem(
+                mappingCacheKey,
+                JSON.stringify({
+                  tmdbId: result.tmdbId,
+                  timestamp: Date.now(),
+                })
+              );
+
+              // 保存TMDB详情数据到localStorage（1天）
+              const detailsCacheKey = `tmdb_details_${result.tmdbId}`;
+              localStorage.setItem(
+                detailsCacheKey,
+                JSON.stringify({
+                  data: result,
+                  timestamp: Date.now(),
+                })
+              );
+            } catch (e) {
+              console.error('保存缓存失败:', e);
+            }
+          }
+        } else {
+          setTmdbBackdrop(null);
+        }
+      } catch (error) {
+        console.error('获取TMDB背景图失败:', error);
+        setTmdbBackdrop(null);
+      }
+    };
+
+    fetchTMDBBackdrop();
+  }, [videoTitle]);
 
 
   // 视频播放地址
@@ -4405,6 +4520,19 @@ function PlayPageClient() {
 
   return (
     <PageLayout activePath='/play'>
+      {/* TMDB背景图 */}
+      {tmdbBackdrop && (
+        <div
+          className='fixed inset-0 z-0'
+          style={{
+            backgroundImage: `url(${tmdbBackdrop})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(5px) brightness(0.7)',
+          }}
+        />
+      )}
       {/* 弹幕源选择对话框 */}
       {showDanmakuSourceSelector && danmakuMatches.length > 0 && (
         <div className='fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm'>
