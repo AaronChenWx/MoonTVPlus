@@ -33,9 +33,12 @@ import { DatabaseAdapter } from './d1-adapter';
  */
 export class D1Storage implements IStorage {
   private db: DatabaseAdapter;
+  public adapter: RedisHashAdapter;
 
   constructor(adapter: DatabaseAdapter) {
     this.db = adapter;
+    // 创建 Redis Hash 兼容适配器用于设备管理
+    this.adapter = new RedisHashAdapter(adapter);
   }
 
   // ==================== 播放记录 ====================
@@ -1476,5 +1479,99 @@ export class D1Storage implements IStorage {
       console.error('D1Storage.setLastFavoriteCheckTime error:', err);
       throw err;
     }
+  }
+}
+
+/**
+ * Redis Hash 兼容适配器
+ * 用于支持设备管理功能（refresh token 存储）
+ *
+ * 使用 global_config 表模拟 Redis Hash 操作
+ * key 格式：user_tokens:{username}:{tokenId}
+ */
+class RedisHashAdapter {
+  constructor(private db: DatabaseAdapter) {}
+
+  /**
+   * 设置 Hash 字段
+   * Redis: HSET key field value
+   * D1: INSERT/UPDATE global_config
+   */
+  async hSet(hashKey: string, field: string, value: string): Promise<void> {
+    const key = `${hashKey}:${field}`;
+    await this.db
+      .prepare(`
+        INSERT INTO global_config (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+      `)
+      .bind(key, value, Date.now())
+      .run();
+  }
+
+  /**
+   * 获取 Hash 字段
+   * Redis: HGET key field
+   * D1: SELECT from global_config
+   */
+  async hGet(hashKey: string, field: string): Promise<string | null> {
+    const key = `${hashKey}:${field}`;
+    const result = await this.db
+      .prepare('SELECT value FROM global_config WHERE key = ?')
+      .bind(key)
+      .first();
+
+    return result ? (result.value as string) : null;
+  }
+
+  /**
+   * 获取 Hash 所有字段
+   * Redis: HGETALL key
+   * D1: SELECT all matching keys
+   */
+  async hGetAll(hashKey: string): Promise<Record<string, string>> {
+    const prefix = `${hashKey}:`;
+    const results = await this.db
+      .prepare('SELECT key, value FROM global_config WHERE key LIKE ?')
+      .bind(`${prefix}%`)
+      .all();
+
+    const hash: Record<string, string> = {};
+
+    if (results && results.results) {
+      for (const row of results.results) {
+        const fullKey = row.key as string;
+        const field = fullKey.substring(prefix.length);
+        hash[field] = row.value as string;
+      }
+    }
+
+    return hash;
+  }
+
+  /**
+   * 删除 Hash 字段
+   * Redis: HDEL key field
+   * D1: DELETE from global_config
+   */
+  async hDel(hashKey: string, field: string): Promise<void> {
+    const key = `${hashKey}:${field}`;
+    await this.db
+      .prepare('DELETE FROM global_config WHERE key = ?')
+      .bind(key)
+      .run();
+  }
+
+  /**
+   * 删除整个 Hash
+   * Redis: DEL key
+   * D1: DELETE all matching keys
+   */
+  async del(hashKey: string): Promise<void> {
+    const prefix = `${hashKey}:`;
+    await this.db
+      .prepare('DELETE FROM global_config WHERE key LIKE ?')
+      .bind(`${prefix}%`)
+      .run();
   }
 }
